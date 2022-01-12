@@ -6,14 +6,14 @@ import com.google.common.collect.SetMultimap;
 import com.neovisionaries.i18n.CountryCode;
 import com.vividsolutions.jts.geom.Envelope;
 import de.komoot.photon.nominatim.model.AddressType;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.elasticsearch.xcontent.XContentBuilder;
+import org.elasticsearch.xcontent.XContentFactory;
 
 /**
  * helper functions to create convert a photon document to XContentBuilder object / JSON
@@ -25,6 +25,7 @@ public class Utils {
 
     public static XContentBuilder convert(PhotonDoc doc, String[] languages, String[] extraTags) throws IOException {
         final AddressType atype = doc.getAddressType();
+		
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
                 .field(Constants.OSM_ID, doc.getOsmId())
                 .field(Constants.OSM_TYPE, doc.getOsmType())

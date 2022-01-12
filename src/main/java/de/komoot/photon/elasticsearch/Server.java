@@ -1,36 +1,26 @@
 package de.komoot.photon.elasticsearch;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.node.InternalSettingsPreparer;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.NodeValidationException;
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.transport.Netty4Plugin;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
+import org.elasticsearch.common.transport.TransportAddress;
+import org.elasticsearch.env.Environment;
 
 /**
  * Helper class to start/stop elasticsearch node and get elasticsearch clients
@@ -39,185 +29,200 @@ import java.util.List;
  */
 @Slf4j
 public class Server {
-    private Node esNode;
 
-    private Client esClient;
+	private Node esNode;
 
-    private File esDirectory;
+	private Client esClient;
 
-    private Integer shards = null;
+	private File esDirectory;
 
-    protected static class MyNode extends Node {
-        public MyNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins) {
-            super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null), classpathPlugins);
-        }
-    }
+	private Integer shards = null;
 
-    public Server(String mainDirectory) {
-        try {
-            if (SystemUtils.IS_OS_WINDOWS) {
-                setupDirectories(new URL("file:///" + mainDirectory));
-            } else {
-                setupDirectories(new URL("file://" + mainDirectory));
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Can't create directories: " + mainDirectory, e);
-        }
-    }
+	protected static class MyNode extends Node {
 
-    public Server start(String clusterName, String transportAddresses) {
-        Settings.Builder sBuilder = Settings.builder();
-        sBuilder.put("path.home", this.esDirectory.toString());
-        sBuilder.put("network.host", "127.0.0.1"); // http://stackoverflow.com/a/15509589/1245622
-        sBuilder.put("cluster.name", clusterName);
+		public MyNode(Environment environment) {
+			super(environment);
+		}
 
-        if (transportAddresses != null && !transportAddresses.isEmpty()) {
-            TransportClient trClient = new PreBuiltTransportClient(sBuilder.build());
-            List<String> addresses = Arrays.asList(transportAddresses.split(","));
-            for (String tAddr : addresses) {
-                int index = tAddr.indexOf(":");
-                if (index >= 0) {
-                    int port = Integer.parseInt(tAddr.substring(index + 1));
-                    String addrStr = tAddr.substring(0, index);
-                    trClient.addTransportAddress(new InetSocketTransportAddress(new InetSocketAddress(addrStr, port)));
-                } else {
-                    trClient.addTransportAddress(new InetSocketTransportAddress(new InetSocketAddress(tAddr, 9300)));
-                }
-            }
+	}
 
-            esClient = trClient;
+	public Server(String mainDirectory) {
+		try {
+			if (SystemUtils.IS_OS_WINDOWS) {
+				setupDirectories(new URL("file:///" + mainDirectory));
+			}
+			else {
+				setupDirectories(new URL("file://" + mainDirectory));
+			}
+		}
+		catch (Exception e) {
+			throw new RuntimeException("Can't create directories: " + mainDirectory, e);
+		}
+	}
 
-            log.info("started elastic search client connected to " + addresses);
+	public Server start(String clusterName, String transportAddresses) {
+		Settings.Builder sBuilder = Settings.builder();
+		sBuilder.put("path.home", this.esDirectory.toString());
+		sBuilder.put("network.host", "127.0.0.1"); // http://stackoverflow.com/a/15509589/1245622
+		sBuilder.put("cluster.name", clusterName);
 
-        } else {
+		if (transportAddresses != null && !transportAddresses.isEmpty()) {
+			TransportClient trClient = new PreBuiltTransportClient(sBuilder.build());
+			List<String> addresses = Arrays.asList(transportAddresses.split(","));
+			for (String tAddr : addresses) {
+				int index = tAddr.indexOf(":");
+				if (index >= 0) {
+					int port = Integer.parseInt(tAddr.substring(index + 1));
+					String addrStr = tAddr.substring(0, index);
+					trClient.addTransportAddress(new TransportAddress(new InetSocketAddress(addrStr, port)));
+				}
+				else {
+					trClient.addTransportAddress(new TransportAddress(new InetSocketAddress(tAddr, 9300)));
+				}
+			}
 
-            try {
-                sBuilder.put("transport.type", "netty4").put("http.type", "netty4").put("http.enabled", "true");
-                Settings settings = sBuilder.build();
-                Collection<Class<? extends Plugin>> lList = new LinkedList<>();
-                lList.add(Netty4Plugin.class);
-                esNode = new MyNode(settings, lList);
-                esNode.start();
+			esClient = trClient;
 
-                log.info("started elastic search node");
+			log.info("started elastic search client connected to " + addresses);
 
-                esClient = esNode.client();
+		}
+		else {
 
-            } catch (NodeValidationException e) {
-                throw new RuntimeException("Error while starting elasticsearch server", e);
-            }
+			try {
+				sBuilder.put("transport.type", "netty4").put("http.type", "netty4").put("http.enabled", "true");
+				Settings settings = sBuilder.build();
 
-        }
-        return this;
-    }
+				/*
+				 * Collection<Class<? extends Plugin>> lList = new LinkedList<>();
+				 * lList.add(Netty4Plugin.class);
+				 */
 
-    /**
-     * stops the elasticsearch node
-     */
-    public void shutdown() {
-        try {
-            if (esNode != null)
-                esNode.close();
+				Environment environment = new Environment(settings, null);
+				esNode = new Node(environment);
 
-            esClient.close();
-        } catch (IOException e) {
-            throw new RuntimeException("Error during elasticsearch server shutdown", e);
-        }
-    }
+				// esNode = new MyNode(settings, lList);
+				esNode.start();
 
-    /**
-     * returns an elasticsearch client
-     */
-    public Client getClient() {
-        return esClient;
-    }
+				log.info("started elastic search node");
 
-    private void setupDirectories(URL directoryName) throws IOException, URISyntaxException {
-        final File mainDirectory = new File(directoryName.toURI());
-        final File photonDirectory = new File(mainDirectory, "photon_data");
-        this.esDirectory = new File(photonDirectory, "elasticsearch");
-        final File pluginDirectory = new File(esDirectory, "plugins");
-        final File scriptsDirectory = new File(esDirectory, "config/scripts");
-        final File painlessDirectory = new File(esDirectory, "modules/lang-painless");
+				esClient = esNode.client();
 
-        for (File directory : new File[]{photonDirectory, esDirectory, pluginDirectory, scriptsDirectory,
-                painlessDirectory}) {
-            directory.mkdirs();
-        }
+			}
+			catch (NodeValidationException e) {
+				throw new RuntimeException("Error while starting elasticsearch server", e);
+			}
 
-        // copy script directory to elastic search directory
-        final ClassLoader loader = Thread.currentThread().getContextClassLoader();
+		}
+		return this;
+	}
 
-        Files.copy(loader.getResourceAsStream("modules/lang-painless/antlr4-runtime.jar"),
-                new File(painlessDirectory, "antlr4-runtime.jar").toPath(),
-                StandardCopyOption.REPLACE_EXISTING);
-        Files.copy(loader.getResourceAsStream("modules/lang-painless/asm-debug-all.jar"),
-                new File(painlessDirectory, "asm-debug-all.jar").toPath(), StandardCopyOption.REPLACE_EXISTING);
-        Files.copy(loader.getResourceAsStream("modules/lang-painless/lang-painless.jar"),
-                new File(painlessDirectory, "lang-painless.jar").toPath(), StandardCopyOption.REPLACE_EXISTING);
-        Files.copy(loader.getResourceAsStream("modules/lang-painless/plugin-descriptor.properties"),
-                new File(painlessDirectory, "plugin-descriptor.properties").toPath(),
-                StandardCopyOption.REPLACE_EXISTING);
-        Files.copy(loader.getResourceAsStream("modules/lang-painless/plugin-security.policy"),
-                new File(painlessDirectory, "plugin-security.policy").toPath(), StandardCopyOption.REPLACE_EXISTING);
+	/**
+	 * stops the elasticsearch node
+	 */
+	public void shutdown() {
+		try {
+			if (esNode != null)
+				esNode.close();
 
-    }
+			esClient.close();
+		}
+		catch (IOException e) {
+			throw new RuntimeException("Error during elasticsearch server shutdown", e);
+		}
+	}
 
-    public DatabaseProperties recreateIndex(String[] languages) throws IOException {
-        deleteIndex();
+	/**
+	 * returns an elasticsearch client
+	 */
+	public Client getClient() {
+		return esClient;
+	}
 
-        final Client client = this.getClient();
+	private void setupDirectories(URL directoryName) throws IOException, URISyntaxException {
+		final File mainDirectory = new File(directoryName.toURI());
+		final File photonDirectory = new File(mainDirectory, "photon_data");
+		this.esDirectory = new File(photonDirectory, "elasticsearch");
+		final File pluginDirectory = new File(esDirectory, "plugins");
+		final File scriptsDirectory = new File(esDirectory, "config/scripts");
+		final File painlessDirectory = new File(esDirectory, "modules/lang-painless");
 
-        loadIndexSettings().createIndex(client, PhotonIndex.NAME);
+		for (File directory : new File[] { photonDirectory, esDirectory, pluginDirectory, scriptsDirectory,
+				painlessDirectory }) {
+			directory.mkdirs();
+		}
 
-        new IndexMapping().addLanguages(languages).putMapping(client, PhotonIndex.NAME, PhotonIndex.TYPE);
+		// copy script directory to elastic search directory
+		final ClassLoader loader = Thread.currentThread().getContextClassLoader();
 
-        DatabaseProperties dbProperties = new DatabaseProperties().setLanguages(languages);
-        dbProperties.saveToDatabase(client);
+		Files.copy(loader.getResourceAsStream("modules/lang-painless/antlr4-runtime.jar"),
+				new File(painlessDirectory, "antlr4-runtime.jar").toPath(), StandardCopyOption.REPLACE_EXISTING);
+		Files.copy(loader.getResourceAsStream("modules/lang-painless/asm-debug-all.jar"),
+				new File(painlessDirectory, "asm-debug-all.jar").toPath(), StandardCopyOption.REPLACE_EXISTING);
+		Files.copy(loader.getResourceAsStream("modules/lang-painless/lang-painless.jar"),
+				new File(painlessDirectory, "lang-painless.jar").toPath(), StandardCopyOption.REPLACE_EXISTING);
+		Files.copy(loader.getResourceAsStream("modules/lang-painless/plugin-descriptor.properties"),
+				new File(painlessDirectory, "plugin-descriptor.properties").toPath(),
+				StandardCopyOption.REPLACE_EXISTING);
+		Files.copy(loader.getResourceAsStream("modules/lang-painless/plugin-security.policy"),
+				new File(painlessDirectory, "plugin-security.policy").toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-        return dbProperties;
-    }
+	}
 
-    public void updateIndexSettings() {
-        // Load the settings from the database to make sure it is at the right
-        // version. If the version is wrong, we should not be messing with the
-        // index.
-        DatabaseProperties dbProperties = new DatabaseProperties();
-        dbProperties.loadFromDatabase(getClient());
+	public DatabaseProperties recreateIndex(String[] languages) throws IOException {
+		deleteIndex();
 
-        loadIndexSettings().updateIndex(getClient(), PhotonIndex.NAME);
+		final Client client = this.getClient();
 
-        // Sanity check: legacy databases don't save the languages, so there is no way to update
-        //               the mappings consistently.
-        if (dbProperties.getLanguages() != null) {
-            new IndexMapping()
-                    .addLanguages(dbProperties.getLanguages())
-                    .putMapping(getClient(), PhotonIndex.NAME, PhotonIndex.TYPE);
-        }
-    }
+		loadIndexSettings().createIndex(client, PhotonIndex.NAME);
 
-    private IndexSettings loadIndexSettings() {
-        return new IndexSettings().setShards(shards);
-    }
+		new IndexMapping().addLanguages(languages).putMapping(client, PhotonIndex.NAME, PhotonIndex.TYPE);
 
-    public void deleteIndex() {
-        try {
-            this.getClient().admin().indices().prepareDelete(PhotonIndex.NAME).execute().actionGet();
-        } catch (IndexNotFoundException e) {
-            // ignore
-        }
-    }
+		DatabaseProperties dbProperties = new DatabaseProperties().setLanguages(languages);
+		dbProperties.saveToDatabase(client);
 
+		return dbProperties;
+	}
 
-    /**
-     * Set the maximum number of shards for the embedded node
-     * This typically only makes sense for testing
-     *
-     * @param shards the maximum number of shards
-     * @return this Server instance for chaining
-     */
-    public Server setMaxShards(int shards) {
-        this.shards = shards;
-        return this;
-    }
+	public void updateIndexSettings() {
+		// Load the settings from the database to make sure it is at the right
+		// version. If the version is wrong, we should not be messing with the
+		// index.
+		DatabaseProperties dbProperties = new DatabaseProperties();
+		dbProperties.loadFromDatabase(getClient());
+
+		loadIndexSettings().updateIndex(getClient(), PhotonIndex.NAME);
+
+		// Sanity check: legacy databases don't save the languages, so there is no way to
+		// update
+		// the mappings consistently.
+		if (dbProperties.getLanguages() != null) {
+			new IndexMapping().addLanguages(dbProperties.getLanguages()).putMapping(getClient(), PhotonIndex.NAME,
+					PhotonIndex.TYPE);
+		}
+	}
+
+	private IndexSettings loadIndexSettings() {
+		return new IndexSettings().setShards(shards);
+	}
+
+	public void deleteIndex() {
+		try {
+			this.getClient().admin().indices().prepareDelete(PhotonIndex.NAME).execute().actionGet();
+		}
+		catch (IndexNotFoundException e) {
+			// ignore
+		}
+	}
+
+	/**
+	 * Set the maximum number of shards for the embedded node This typically only makes
+	 * sense for testing
+	 * @param shards the maximum number of shards
+	 * @return this Server instance for chaining
+	 */
+	public Server setMaxShards(int shards) {
+		this.shards = shards;
+		return this;
+	}
+
 }

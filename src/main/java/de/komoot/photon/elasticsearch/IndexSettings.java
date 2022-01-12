@@ -1,11 +1,11 @@
 package de.komoot.photon.elasticsearch;
 
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import java.io.InputStream;
+import org.elasticsearch.xcontent.XContentType;
 
 /**
  * Encapsulates the ES index settings for the photon index. Adds functions to

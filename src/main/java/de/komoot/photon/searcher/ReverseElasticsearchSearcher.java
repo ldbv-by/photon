@@ -7,7 +7,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.geo.GeoPoint;
-import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -26,7 +26,7 @@ public class ReverseElasticsearchSearcher {
                                  Boolean locationDistanceSort) {
         TimeValue timeout = TimeValue.timeValueSeconds(7);
 
-        SearchRequestBuilder builder = client.prepareSearch(PhotonIndex.NAME).setSearchType(SearchType.QUERY_AND_FETCH)
+        SearchRequestBuilder builder = client.prepareSearch(PhotonIndex.NAME).setSearchType(SearchType.QUERY_THEN_FETCH)
                 .setQuery(queryBuilder).setSize(limit).setTimeout(timeout);
 
         if (locationDistanceSort)
