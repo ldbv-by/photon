@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>de.komoot.photon</groupId>
     <artifactId>photon</artifactId>
-    <version>0.3.5</version>
+    <version>0.3.6</version>
 
     <dependencies>
         <dependency>
@@ -45,6 +45,12 @@
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency><!-- required by elasticsearch to avoid warning on startup,
+            see https://github.com/elastic/elasticsearch/issues/13245 -->
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>jna</artifactId>
+            <version>4.5.1</version>
         </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -147,7 +153,7 @@
                     <groupId>net.bytebuddy</groupId>
                     <artifactId>byte-buddy-agent</artifactId>
                 </exclusion>
-           </exclusions>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -223,7 +229,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.1.1</version>
+                <version>3.2.0</version>
                 <executions>
                     <execution>
                         <id>copy-painless</id>
@@ -238,7 +244,7 @@
                         <artifactItem>
                             <groupId>org.codelibs.elasticsearch.module</groupId>
                             <artifactId>lang-painless</artifactId>
-                            <version>${elasticsearch.version}</version>
+                            <version>7.6.2</version>
                             <type>jar</type>
                             <overWrite>false</overWrite>
                             <outputDirectory>${project.build.directory}/es/modules/lang-painless</outputDirectory>
@@ -323,9 +329,9 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
 
-        <elasticsearch.version>5.6.16</elasticsearch.version>
+        <elasticsearch.version>7.16.2</elasticsearch.version>
         <slf4j.version>1.7.30</slf4j.version>
-        <log4j.version>2.8.2</log4j.version>
+        <log4j.version>2.17.1</log4j.version>
 
         <additionalparam>-Xdoclint:none</additionalparam>
     </properties>

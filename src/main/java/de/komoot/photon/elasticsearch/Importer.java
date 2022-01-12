@@ -8,6 +8,7 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
 
 import java.io.IOException;
+import org.elasticsearch.xcontent.XContentBuilder;
 
 /**
  * elasticsearch importer
@@ -33,8 +34,9 @@ public class Importer implements de.komoot.photon.Importer {
     @Override
     public void add(PhotonDoc doc) {
         try {
+			XContentBuilder builder = Utils.convert(doc, languages, extraTags);
             this.bulkRequest.add(this.esClient.prepareIndex(PhotonIndex.NAME, PhotonIndex.TYPE).
-                    setSource(Utils.convert(doc, languages, extraTags)).setId(doc.getUid()));
+                    setSource(builder).setId(doc.getUid()));
         } catch (IOException e) {
             log.error("could not bulk add document " + doc.getUid(), e);
             return;

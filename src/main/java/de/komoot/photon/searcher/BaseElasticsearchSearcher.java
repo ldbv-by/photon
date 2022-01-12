@@ -4,7 +4,7 @@ import de.komoot.photon.elasticsearch.PhotonIndex;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 
 /**
@@ -21,7 +21,7 @@ public class BaseElasticsearchSearcher {
     public SearchResponse search(QueryBuilder queryBuilder, Integer limit) {
         TimeValue timeout = TimeValue.timeValueSeconds(7);
         return client.prepareSearch(PhotonIndex.NAME).
-                setSearchType(SearchType.QUERY_AND_FETCH).
+                setSearchType(SearchType.QUERY_THEN_FETCH).
                 setQuery(queryBuilder).
                 setSize(limit).
                 setTimeout(timeout).
